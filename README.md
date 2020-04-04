@@ -1,7 +1,7 @@
 # Deploy a High-Availability Web App using CloudFormation (Infrastructure as Code)
 
 ## Overview 
-First use *network.yml* and *network.json* files to create the networking infrastructure for udagram including VPC, Subnets, Internet Gateway, Route Tables, and Routes. Then, use *servers.yml* and *servers.json* to launch the server resources and the IAM role, policy and profile needed to access resources (udacity.zip) stored in S3 bucket. 
+First use *network.yml* and *network.json* files to create the networking infrastructure for udagram including VPC, Subnets, Internet Gateway, Route Tables, and Routes. Then, use *servers.yml* and *servers.json* to launch the server resources and the create IAM role, policy and profile needed to access resources (udacity.zip) stored in S3 bucket. 
 
 ## The following files/directories are included: 
 - **network.yml**: Cloudformation template for networking infrastructure 
@@ -22,7 +22,12 @@ $ sudo chmod 755 network.yml servers.yml
 $ ./create.sh UdagramNetwork network.yml network.json 
 ```
 
-## Example 2: Delete Cloudformation stack by name
+## Example 2: Update a CloudFormation Network stack  
+```sh
+$ ./update.sh UdagramNetwork network.yml network.json 
+```
+
+## Example 3: Delete Cloudformation stack by name
 ```sh
 $ ./delete.sh UdagramNetwork 
 ```
