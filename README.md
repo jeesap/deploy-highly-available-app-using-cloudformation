@@ -62,6 +62,6 @@ $ ./delete.sh UdagramNetwork
 - [x] Subnets 
     - [x] Auto Scaling Instances using PRIV-NET (private subnets) for auto-scaling instances 
 - [x] Machine Specs 
-    - [ ] The machine should have 10 GB or more of disk and should be a t3.small 
+    - [x] The machine should have 10 GB or more of disk and should be a t3.small 
 - [x] No SSH Key 
     - [x] Launch configuration does not have 'keyName' property
