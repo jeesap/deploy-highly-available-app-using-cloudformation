@@ -1,0 +1,14 @@
+[
+    {
+        "ParameterKey": "EnvironmentName",
+        "ParameterValue": "Udagram"
+    },
+    {
+        "ParameterKey": "AmiImageId",
+        "ParameterValue": "ami-0d1cd67c26f5fca19"
+    },
+    {
+        "ParameterKey": "Instance",
+        "ParameterValue": "t3.small"
+    }
+]

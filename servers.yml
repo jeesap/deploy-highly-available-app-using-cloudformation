@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  This template creates server resources for Udagram Web App 
+  Sergio Pichardo
+
+Parameters: 
+  EnvironmentName: 
+    Description: The environment name that will be prefixed to server resource names.
+    Type: String
+  AmiImageId:
+    Description: The instance image type you're using
+    Type: AWS::EC2::Image::Id
+  Instance:
+    Description: The instance image type you're using
+    Type: String
+
+Resources: 
+  SecurityGroupLoadBalancer: 
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP access to our Application Load Balancer 
+      VpcId: 
+        Fn::ImportValue: # Import EnvironmentName from the 'paramaters.json' file
+          !Sub "${EnvironmentName}-VPCID"
+      SecurityGroupIngress: 
+      - IpProtocol: tcp 
+        FromPort: 80
+        ToPort: 80 
+        CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+      - IpProtocol: tcp 
+        FromPort: 80 
+        ToPort: 80 
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp 
+        FromPort: 80 
+        ToPort: 80 
+        CidrIp: 0.0.0.0/0
+
+  SecurityGroupWebServers:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow http to client host
+        VpcId:
+          Fn::ImportValue:
+            !Sub "${EnvironmentName}-VPCID"
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp 
+          FromPort: 22 
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+
+  UdacityS3ReadOnlyEC2: 
+    Type: "AWS::IAM::Role"
+    Properties: 
+      RoleName: 
+        !Sub "${EnvironmentName}-Role"
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Principal: 
+              Service: 
+                - "ec2.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      Path: "/"
+
+  RolePolicies: 
+    Type: "AWS::IAM::Policy"
+    Properties: 
+      PolicyName: "UdacityS3ReadOnlyEC2Access"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Effect: "Allow"
+            Action: 
+              - "s3:Get*" 
+              - "s3:List*"
+            Resource:
+              - arn:aws:s3:::udacity-demo-1-pichardo
+              - arn:aws:s3:::udacity-demo-1-pichardo/*
+      Roles: 
+        - 
+          Ref: "UdacityS3ReadOnlyEC2"
+
+  ProfileWithRolesForOurApp: 
+    Type: "AWS::IAM::InstanceProfile"
+    Properties: 
+      Path: "/"
+      Roles: 
+        - 
+          Ref: "UdacityS3ReadOnlyEC2"
+
+  LaunchConfiguration: 
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties: 
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash 
+          sudo su
+          apt update -y 
+          apt install apache2 -y 
+          apt install awscli -y 
+          apt install unzip -y
+          systemctl start apache2.service 
+          systemctl enable apache2.service 
+          cd /var/www/html 
+          rm -rf index.html 
+          aws s3 cp s3://udacity-demo-1/udacity.zip .
+          unzip -o udacity.zip
+      ImageId: !Ref AmiImageId
+      InstanceType: !Ref Instance 
+      IamInstanceProfile: !Ref ProfileWithRolesForOurApp
+      SecurityGroups:
+        - Ref: SecurityGroupWebServers
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sdk"
+          Ebs:
+            VolumeSize: 10
+
+  AutoScalingGroup: 
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      VPCZoneIdentifier:
+        - Fn::ImportValue: 
+            !Sub "${EnvironmentName}-PRIV-NETS"
+      LaunchConfigurationName: 
+        Ref: LaunchConfiguration
+      DesiredCapacity: '2'
+      MinSize: '1'
+      MaxSize: '5'
+      TargetGroupARNs: 
+        - Ref: TargetGroup
+      Tags:
+        - Key: Name 
+          Value: !Sub "${EnvironmentName}-Private-Server"
+          PropagateAtLaunch: true 
+
+  LoadBalancer: 
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      Subnets: 
+        - Fn::ImportValue: !Sub "${EnvironmentName}-PUB-SN-A"
+        - Fn::ImportValue: !Sub "${EnvironmentName}-PUB-SN-B"
+      SecurityGroups:
+        - Ref: SecurityGroupLoadBalancer
+
+  # The Target Group is the association between 
+  # the Auto Scaling Groups and the Load Balancer
+  TargetGroup: 
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP 
+      HealthCheckTimeoutSeconds: 8
+      HealthyThresholdCount: 2
+      Port: 80 
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: 
+        Fn::ImportValue:
+          Fn::Sub: "${EnvironmentName}-VPCID"
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn:
+            Ref: TargetGroup 
+      LoadBalancerArn: 
+        Ref: LoadBalancer
+      Port: 80 
+      Protocol: HTTP
+
+  ListenerRule: 
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      Conditions:
+        - Field: path-pattern 
+          Values: [/]
+      ListenerArn: !Ref Listener 
+      Priority: 1
+
+Outputs: 
+  LoadBalancerURL:
+    Description: Generate Load Balancer's URL 
+    Value: !Join [ "", [ 'http://', !GetAtt LoadBalancer.DNSName ]]
+    Export:
+      Name: !Sub "${EnvironmentName}-Load-Balancer-URL"
+
+  
