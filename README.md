@@ -1,6 +1,6 @@
 # Deploy a High-Availability Web App using CloudFormation (Infrastructure as Code)
 
-![alt Project Architecture](https://github.com/sergiopichardo/deploy-highly-available-app-using-cloudformation/resources/iac-project-2-ha-web-app.png)
+![alt Project Architecture](https://github.com/sergiopichardo/deploy-highly-available-app-using-cloudformation/blob/master/resources/iac-project-2-ha-web-app.png)
 
 ## Specifications 
 ### The Basics 
